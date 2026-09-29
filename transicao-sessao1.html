@@ -154,10 +154,28 @@ const IDENT = { num: 'Antes de começar', titulo: 'Identificação', intro: 'Pre
 const CONCLUSAO = { titulo: 'Obrigado. Sessão concluída.', texto: 'Suas respostas foram enviadas ao seu orientador, que vai analisá-las e conversar sobre elas com você no próximo encontro.' };
 const identComTarefa = (label) => ({ num: 'Antes de começar', titulo: 'Identificação', intro: 'Preencha seus dados para iniciar o exercício desta sessão.', botao: 'Começar', itens: [...ID, { t: 'area', id: 'tarefa_anterior', label: label, ph: 'Escreva aqui o que você anotou durante a semana.' }] });
 
+const DIM = [
+  ['imp_conteudo', 'Conteúdo do trabalho', 'O que eu faço no dia a dia'],
+  ['imp_remuneracao', 'Remuneração', 'Ganhar bem pelo que entrego'],
+  ['imp_crescimento', 'Crescimento', 'Chances de aprender e evoluir'],
+  ['imp_reconhecimento', 'Reconhecimento', 'Ser visto e valorizado'],
+  ['imp_relacoes', 'Relações', 'Chefia, colegas, clientes'],
+  ['imp_autonomia', 'Autonomia', 'Liberdade para decidir como trabalhar'],
+  ['imp_equilibrio', 'Equilíbrio', 'Tempo e energia para a vida fora do trabalho'],
+  ['imp_proposito', 'Propósito', 'Sentido no que faço'],
+];
+const funcao = n => ({ t: 'card', title: 'Função ' + n, sub: n === 1 ? 'A mais recente (ou a atual).' : 'Uma função anterior, emprego, cargo ou atividade relevante.', items: [
+  { t: 'text', id: 'f' + n + '_cargo', label: 'Cargo ou atividade e onde', ph: 'Ex: professora de matemática, escola estadual' },
+  { t: 'text', id: 'f' + n + '_periodo', label: 'Período', ph: 'Ex: 2015 a 2021' },
+  { t: 'area', id: 'f' + n + '_gostava', label: 'O que você mais gostava?' },
+  { t: 'area', id: 'f' + n + '_nao_gostava', label: 'O que você menos gostava?' },
+  { t: 'area', id: 'f' + n + '_saida', label: 'Por que saiu ou por que quer sair?' },
+] });
+
 const SESSAO = {
   n: 1,
   titulo: 'Balanço da Trajetória',
-  sub: 'Contrato · Linha do tempo profissional',
+  sub: 'Contrato · Linha do tempo · Inventário de funções · O que mais importa',
   somenteOrientador: true,
   passos: [
     {
@@ -171,7 +189,7 @@ const SESSAO = {
       ],
     },
     {
-      num: 'Exercício 1 de 1',
+      num: 'Exercício 1 de 3',
       titulo: 'Linha do tempo profissional',
       intro: 'Revise sua trajetória desde o primeiro trabalho. Escolha os momentos que mais marcaram você, bons ou ruins.',
       itens: [
@@ -194,6 +212,24 @@ const SESSAO = {
       ],
     },
     {
+      num: 'Exercício 2 de 3',
+      titulo: 'Inventário de funções',
+      intro: 'Liste até 3 funções que você já exerceu, da mais recente para a mais antiga. Pode incluir estágios, trabalhos informais ou voluntários que foram importantes para você.',
+      itens: [
+        funcao(1), funcao(2), funcao(3),
+        { t: 'area', id: 'inv_padrao', label: 'Olhando as três funções: o que aparece em tudo que você gostava? E em tudo que não gostava?' },
+      ],
+    },
+    {
+      num: 'Exercício 3 de 3',
+      titulo: 'O que mais importa para você',
+      intro: 'Na demonstração, você marcou o quanto está satisfeito com cada dimensão. Agora marque de 0 a 10 o quanto cada uma IMPORTA para você hoje. Não o que deveria importar, mas o que realmente pesa nas suas decisões.',
+      itens: [
+        ...DIM.map(d => ({ t: 'scale', id: d[0], label: d[1], desc: d[2], req: true, msg: 'Marque uma nota de 0 a 10 em todas as dimensões.', ends: ['Não importa', 'Essencial'] })),
+        { t: 'area', id: 'imp_abrir_mao', label: 'Se tivesse que abrir mão de uma dessas dimensões por 1 ano para fazer a transição, qual seria? Por quê?' },
+      ],
+    },
+    {
       num: 'Reflexão final',
       titulo: 'O fio da sua história',
       intro: 'Reserve 5 minutos. Responda sem reler o que escreveu antes.',
@@ -210,6 +246,15 @@ const SESSAO = {
       ],
     },
   ],
+  payloadExtra: A => {
+    const n = DIM.map(d => [d[1], A[d[0]]]).filter(d => typeof d[1] === 'number').sort((a, b) => b[1] - a[1]);
+    if (!n.length) return {};
+    return {
+      'ANÁLISE · Dimensões mais importantes': n.slice(0, 3).map(d => d[0] + ' (' + d[1] + ')').join(' · '),
+      'ANÁLISE · Dimensões menos importantes': n.slice(-2).map(d => d[0] + ' (' + d[1] + ')').join(' · '),
+      'ANÁLISE · Cruzar com a demonstração': 'Compare com as notas de satisfação da Roda do trabalho: dimensões muito importantes e pouco satisfeitas indicam o foco da transição.',
+    };
+  },
   conclusao: CONCLUSAO,
 };
 
@@ -236,7 +281,7 @@ function renderItem(it) {
     case 'choice':
       return `<div class="field"><div class="field-label">${it.label}</div><div class="opts" role="radiogroup">${it.opts.map(o => `<button type="button" class="opt${A[it.id] === o ? ' selected' : ''}" onclick="escolher('${it.id}',this)" data-v="${esc(o)}">${o}</button>`).join('')}</div></div>`;
     case 'scale':
-      return `<div class="field"><div class="field-label">${it.label}</div>${it.desc ? `<div class="field-desc">${it.desc}</div>` : ''}<div class="opts scale">${[...Array(11).keys()].map(i => `<button type="button" class="opt${A[it.id] === i ? ' selected' : ''}" onclick="nota('${it.id}',${i},this)">${i}</button>`).join('')}</div><div class="scale-ends"><span>Nada satisfeito</span><span>Totalmente</span></div></div>`;
+      return `<div class="field"><div class="field-label">${it.label}</div>${it.desc ? `<div class="field-desc">${it.desc}</div>` : ''}<div class="opts scale">${[...Array(11).keys()].map(i => `<button type="button" class="opt${A[it.id] === i ? ' selected' : ''}" onclick="nota('${it.id}',${i},this)">${i}</button>`).join('')}</div><div class="scale-ends"><span>${(it.ends || [])[0] || 'Nada satisfeito'}</span><span>${(it.ends || [])[1] || 'Totalmente'}</span></div></div>`;
     case 'radar':
       return `<svg class="radar" id="radar_${it.group}" viewBox="-75 -5 490 350"></svg>`;
     case 'chips':
